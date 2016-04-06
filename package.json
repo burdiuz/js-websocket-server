@@ -2,7 +2,7 @@
   "name": "websocket-server",
   "description": "Simple WebSocket Server implementation with traditional API",
   "version": "0.0.1",
-  "main": "dist/websocket-server.min.js",
+  "main": "index.js",
   "keywords": [
     "http",
     "connection",
