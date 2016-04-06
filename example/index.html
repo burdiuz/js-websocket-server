@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebSocket Server Example</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+        integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+  <script type="text/javascript">
+    var socket;
+    $(function() {
+      socket = new WebSocket('ws://localhost:8081/ws');
+      socket.onopen = function() {
+        $('.container').removeClass('hidden');
+      };
+      socket.onerror = function() {
+        console.log('error', arguments);
+      };
+      socket.onclose = function() {
+        console.log('close', arguments);
+      };
+      socket.onmessage = function(event) {
+        $('.result').prepend('<div>' + event.data + '</div>');
+      };
+
+      $('.send').on('click', function(event) {
+        //event.preventDefault
+        var value = $('.input').val().trim();
+        if (value) {
+          socket.send($('.input').val());
+        }
+      });
+    });
+  </script>
+</head>
+<body>
+<div class="container hidden">
+  <div class="row form-group">
+    <div class="col-xs-6">
+      <label>
+        Message to send:
+      </label>
+      <input type="text" class="input form-control" value="Hello Server!">
+      <button class="send">Send</button>
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xs-6">
+      Results:
+    </div>
+  </div>
+  <div class="row">
+    <div class="col-xs-6 result">
+    </div>
+  </div>
+</div>
+</body>
+</html>

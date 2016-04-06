@@ -1,17 +1,24 @@
 'use strict';
 
 var http = require('http');
-var DeferredDataAccess = require('./dist/deferred-data-access');
-/**
- * @type {DeferredDataAccess}
- */
-var api = DeferredDataAccess.create({});
 
+/**
+ * @type {http.Server}
+ */
 var server = http.createServer();
 
-var webSocket = require('./socket/server.js');
-webSocket.addEventListener(webSocket.CLIENT_CONNECTED, function(client) {
-  console.log('client connected!');
+var webSocket = require('../index.js');
+webSocket.addEventListener(webSocket.CLIENT_CONNECTED, function(event) {
+  let client = event.data;
+  console.log(' -- client connected');
+  client.addEventListener(webSocket.Client.MESSAGE_RECEIVED, function(event) {
+    if (event.data.type === webSocket.Frame.TEXT_TYPE) {
+      console.log(' - message received:', event.data.value);
+      for (let client of webSocket.Client) {
+        client.send(event.data.value.split('').reverse().join(''));
+      }
+    }
+  });
 });
 
 // Handling HTTP requests to start WebSocket connection
