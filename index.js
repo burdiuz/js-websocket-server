@@ -333,6 +333,7 @@ var Client = (function() {
   var clients = new Map();
 
   var SOCKET_KEY = Symbol('client::socket');
+
   /**
    * @param {net.Socket} socket
    * @constructor
@@ -369,7 +370,7 @@ var Client = (function() {
     }
     this._incoming.append(data);
     if (this._incoming.isFinal()) {
-      switch(this._incoming.getType()){
+      switch (this._incoming.getType()) {
         case Frame.BINARY_TYPE:
         case Frame.TEXT_TYPE:
           this.dispatchEvent(Client.MESSAGE_RECEIVED, this._incoming.createMessage());
@@ -397,7 +398,7 @@ var Client = (function() {
    */
   Client.prototype._endHandler = function() {
     if (this.hasEventListener(Client.END)) {
-      this.dispatchEvent(Client.END);
+      this.dispatchEvent(Client.END, this);
     }
   };
   /**
@@ -406,7 +407,7 @@ var Client = (function() {
   Client.prototype._closeHandler = function() {
     clients.delete(this[SOCKET_KEY]);
     if (this.hasEventListener(Client.CLOSE)) {
-      this.dispatchEvent(Client.CLOSE);
+      this.dispatchEvent(Client.CLOSE, this);
     }
   };
 
@@ -443,6 +444,7 @@ var Client = (function() {
     clients.set(socket, client);
     return client;
   }
+
   /**
    * @method Client.get
    * @param {net.Socket} socket
@@ -494,7 +496,7 @@ var Client = (function() {
 /**
  * @private
  */
-var WebSocketServer = (function(){
+var WebSocketServer = (function() {
   const UUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
   const SUPPORTED_VERSIONS = {
@@ -551,9 +553,18 @@ var WebSocketServer = (function(){
   function upgradeHandler(request, socket, head) {
     if (acceptConnection(request, socket)) {
       var client = Client.get(socket);
+      client.addEventListener(Client.CLOSE, clientCloseHandler);
       if (WebSocketServer.hasEventListener(WebSocketServer.CLIENT_CONNECTED)) {
         WebSocketServer.dispatchEvent(WebSocketServer.CLIENT_CONNECTED, client);
       }
+    }
+  }
+
+  function clientCloseHandler(event) {
+    var client = event.data;
+    client.removeEventListener(Client.CLOSE, clientCloseHandler);
+    if (WebSocketServer.hasEventListener(WebSocketServer.CLIENT_DISCONNECTED)) {
+      WebSocketServer.dispatchEvent(WebSocketServer.CLIENT_DISCONNECTED, client);
     }
   }
 
