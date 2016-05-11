@@ -44,7 +44,7 @@ var Frame = {
     var mask, index;
     var position = 2;
     var dataLength = data.length;
-    var buffer = new Buffer(Frame.length(dataLength, masked));
+    var buffer = Buffer.allocUnsafe(Frame.length(dataLength, masked));
     buffer[0] = 0; // FIN + RSV1-3 + OPCODE
     buffer[1] = (masked ? 1 : 0) << 7;
     position += Frame.setDataLength(buffer, dataLength);
@@ -66,7 +66,7 @@ var Frame = {
   },
 
   mask: function(frameBuffer, position) {
-    var mask = new Buffer(4);
+    var mask = Buffer.allocUnsafe(4);
     //FIXME standard random algorithm is not reliable, please update if looking for further work with this project
     mask.writeUInt32BE(Math.random() * Math.pow(2, 32) >>> 0);
     mask.copy(frameBuffer, position, 0, 4);
@@ -74,9 +74,54 @@ var Frame = {
   },
 
   readMask: function(frameBuffer, position) {
-    var mask = new Buffer(4);
+    var mask = Buffer.allocUnsafe(4);
     frameBuffer.copy(mask, 0, position, position + 4);
     return mask;
+  },
+
+  /**
+   *
+   * @param {Buffer} data
+   * @param {Number} [startPosition=0]
+   * @returns {Number}
+   */
+  readFrameLength: function(data, startPosition) {
+    startPosition = startPosition || 0;
+    if (!data || data.length <= startPosition) return 0;
+    var position = startPosition + 2;
+    var size = 2 + ((data[startPosition + 1] >>> 7) && 4);
+    var length = data[startPosition + 1] & Math.pow(2, 7) - 1;
+    if (length > 125) {
+      if (length == 126) {
+        length = data.readUInt16BE(position);
+        size += 2;
+      } else {
+        length = data.readDoubleBE(position);
+        size += 8;
+      }
+    }
+    return size + length;
+  },
+
+  /**
+   *
+   * @param {Buffer} data
+   * @param {Number} [startPosition=0]
+   * @returns {Number}
+   */
+  readPayloadLength: function(data, startPosition) {
+    startPosition = startPosition || 0;
+    if (!data || data.length <= startPosition + 2) return 0;
+    var length = data[startPosition + 1] & Math.pow(2, 7) - 1;
+    var position = startPosition + 2;
+    if (length > 125) {
+      if (length == 126) {
+        length = data.readUInt16BE(position);
+      } else {
+        length = data.readDoubleBE(position);
+      }
+    }
+    return length;
   },
 
   setDataLength: function(frameBuffer, dataLength) {
@@ -132,39 +177,41 @@ var Frame = {
     }
     return list;
   },
+
   /**
    *
-   * @param {Buffer} frame
+   * @param {Buffer} data
+   * @param {Number} [startPosition=0]
    * @returns {?Buffer}
    */
-  parse: function(frame) {
-    if (!frame || !frame.length) return null;
-    var frameLength = frame.length;
+  parse: function(data, startPosition) {
+    startPosition = startPosition || 0;
+    if (!data || !data.length) return null;
     var result;
-    var masked = frame[1] >>> 7;
-    var length = frame[1] & Math.pow(2, 7) - 1;
-    var position = 2;
+    var masked = data[startPosition + 1] >>> 7;
+    var length = data[startPosition + 1] & Math.pow(2, 7) - 1;
+    var position = startPosition + 2;
     if (length > 125) {
       if (length == 126) {
-        length = frame.readUInt16BE(2);
+        length = data.readUInt16BE(position);
         position += 2;
       } else {
-        length = frame.readDoubleBE(2);
+        length = data.readDoubleBE(position);
         position += 8;
       }
     }
-    if (position + (masked && 4) + length !== frameLength) {
+    if (position + (masked && 4) + length < data.length) {
       throw new Error('Cannot parse incomplete or broken? frame package.');
     }
     if (masked) {
-      result = new Buffer(length);
-      var mask = this.readMask(frame, position);
+      result = Buffer.allocUnsafe(length);
+      var mask = this.readMask(data, position);
       position += 4;
-      for (let index = 0; position < frameLength; index++, position++) {
-        result[index] = frame[position] ^ mask[index % 4];
+      for (let index = 0; index < length; index++, position++) {
+        result[index] = data[position] ^ mask[index % 4];
       }
     } else {
-      result = frame.slice(position, length);
+      result = data.slice(position, length);
     }
     return result;
   },
@@ -275,16 +322,16 @@ var Message = (function() {
   function Message_createBuffer(data) {
     var result;
     if (data === null || data === undefined) {
-      result = new Buffer(0);
+      result = Buffer.allocUnsafe(0);
     } else {
       if (data instanceof Buffer) {
         result = data;
       } else if (data.hasOwnProperty('buffer') && data.buffer instanceof Buffer) {
         result = data.buffer;
       } else if (typeof(data) === 'string') {
-        result = new Buffer(data);
+        result = Buffer.allocUnsafe(data);
       } else {
-        result = new Buffer(JSON.stringify(data));
+        result = Buffer.allocUnsafe(JSON.stringify(data));
       }
     }
     return result;
@@ -359,16 +406,34 @@ var Client = (function() {
 
   Client.prototype = EventDispatcher.createNoInitPrototype();
   Client.prototype.constructor = Client;
+
   /**
    * @private
    */
   Client.prototype._dataHandler = function(data) {
+    var position = 0;
+    do {
+      var frameLength = Frame.readFrameLength(data, position);
+      if (!frameLength) break;
+      var frame = Buffer.allocUnsafe(frameLength);
+      data.copy(frame, 0, position, frameLength);
+      this._addFrameToIncomingStream(frame);
+      position += frameLength;
+    } while (position >= data.length && frameLength);
+  };
+
+  /**
+   * @param frame
+   * @private
+   */
+  Client.prototype._addFrameToIncomingStream = function(frame) {
     if (!this._incoming) {
       // don't bother looking for data if developer not interested in it
       if (!this.hasEventListener(Client.MESSAGE_RECEIVED)) return;
       this._incoming = new IncomingStream();
     }
-    this._incoming.append(data);
+    //FIXME client may send multiple frames in one data chunk, data receiver should check this
+    this._incoming.append(frame);
     if (this._incoming.isFinal()) {
       switch (this._incoming.getType()) {
         case Frame.BINARY_TYPE:
@@ -385,6 +450,7 @@ var Client = (function() {
       this._incoming = null;
     }
   };
+
   /**
    * @private
    */
@@ -393,6 +459,7 @@ var Client = (function() {
       this.dispatchEvent(Client.ERROR, error);
     }
   };
+
   /**
    * @private
    */
@@ -401,6 +468,7 @@ var Client = (function() {
       this.dispatchEvent(Client.END, this);
     }
   };
+
   /**
    * @private
    */
@@ -519,7 +587,7 @@ var WebSocketServer = (function() {
    */
   function WebSocketServer(arg1, arg2, arg3) {
     if (this instanceof WebSocketServer) {
-      throw new Error('WebSocketServer cannot be instantiated,');
+      throw new Error('WebSocketServer cannot be instantiated.');
     }
     if (arg1 instanceof http.Server) {
       arg1.on('upgrade', WebSocketServer.onUpgrade);

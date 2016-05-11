@@ -1,7 +1,7 @@
 {
   "name": "websocket-server",
   "description": "Simple WebSocket Server implementation with traditional API",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "main": "index.js",
   "keywords": [
     "http",
