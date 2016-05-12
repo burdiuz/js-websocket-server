@@ -416,10 +416,10 @@ var Client = (function() {
       var frameLength = Frame.readFrameLength(data, position);
       if (!frameLength) break;
       var frame = Buffer.allocUnsafe(frameLength);
-      data.copy(frame, 0, position, frameLength);
+      data.copy(frame, 0, position, position + frameLength);
       this._addFrameToIncomingStream(frame);
       position += frameLength;
-    } while (position >= data.length && frameLength);
+    } while (position < data.length && frameLength);
   };
 
   /**
