@@ -14,7 +14,7 @@ export const PING_TYPE = 0x9;
 export const PONG_TYPE = 0xA;
 
 export const mask = (frameBuffer, position) => {
-  var maskData = Buffer.allocUnsafe(4);
+  const maskData = Buffer.allocUnsafe(4);
   //FIXME standard random algorithm is not reliable, please update if looking for further work with this project
   maskData.writeUInt32BE(Math.random() * Math.pow(2, 32) >>> 0);
   maskData.copy(frameBuffer, position, 0, 4);
@@ -43,7 +43,7 @@ export const create = (data, masked) => {
   let index;
   let position = 2;
   const dataLength = data.length;
-  const buffer = Buffer.allocUnsafe(Frame.length(dataLength, masked));
+  const buffer = Buffer.allocUnsafe(length(dataLength, masked));
   buffer[0] = 0; // FIN + RSV1-3 + OPCODE
   buffer[1] = (masked ? 1 : 0) << 7;
   position += setDataLength(buffer, dataLength);

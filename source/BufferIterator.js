@@ -20,7 +20,8 @@ class BufferIterator {
         value: undefined,
         done: true,
       };
-    } else if (current === 0 && this._pieces === 1) { // special case when buffer should be sent in one frame, covers most communication sets :)
+    } else if (current === 0 && this._pieces === 1) {
+      // special case when buffer should be sent in one frame, covers most communication sets :)
       return {
         value: this._buffer,
         done: false,

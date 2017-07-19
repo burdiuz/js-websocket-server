@@ -6,9 +6,8 @@
 
 import http from 'http';
 import crypto from 'crypto';
+import EventDispatcher from 'event-dispatcher';
 import Client from './Client';
-import Frame from './Frame';
-import Message from './Message';
 
 const UUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
@@ -21,17 +20,16 @@ const createKeyResponse = (key) => crypto.createHash('SHA1').update(key + UUID).
 export const CLIENT_CONNECTED = 'clientConnected';
 export const CLIENT_DISCONNECTED = 'clientDisconnected';
 
-
 /**
  * @var {WSSHandler|EventDispatcher} WebSocketServer
  */
 class WebSocketServer extends EventDispatcher {
 
-  init = (requestOrServer, socket = null, head = null) => {
+  init(requestOrServer, socket = null, head = null) {
     if (requestOrServer instanceof http.Server) {
-      requestOrServer.on('upgrade', this.upgradeHandler);
+      requestOrServer.on('upgrade', this._upgradeHandler);
     } else {
-      this.upgradeHandler(requestOrServer, socket, head);
+      this._upgradeHandler(requestOrServer, socket, head);
     }
   };
 
@@ -40,25 +38,25 @@ class WebSocketServer extends EventDispatcher {
    * @param {net.Socket} [socket=null]
    * @param {Object} [head=null]
    */
-  upgradeHandler(request, socket, head) {
-    if (this.acceptConnection(request, socket)) {
+  _upgradeHandler = (request, socket, head) => {
+    if (this._acceptConnection(request, socket)) {
       const client = Client.get(socket);
-      client.addEventListener(Client.CLOSE, this.clientCloseHandler);
-      if (WebSocketServer.hasEventListener(CLIENT_CONNECTED)) {
-        WebSocketServer.dispatchEvent(CLIENT_CONNECTED, client);
+      client.addEventListener(Client.CLOSE, this._clientCloseHandler);
+      if (this.hasEventListener(CLIENT_CONNECTED)) {
+        this.dispatchEvent(CLIENT_CONNECTED, client);
       }
     }
-  }
+  };
 
-  clientCloseHandler(event) {
+  _clientCloseHandler = (event) => {
     const client = event.data;
-    client.removeEventListener(Client.CLOSE, this.clientCloseHandler);
-    if (WebSocketServer.hasEventListener(CLIENT_DISCONNECTED)) {
-      WebSocketServer.dispatchEvent(CLIENT_DISCONNECTED, client);
+    client.removeEventListener(Client.CLOSE, this._clientCloseHandler);
+    if (this.hasEventListener(CLIENT_DISCONNECTED)) {
+      this.dispatchEvent(CLIENT_DISCONNECTED, client);
     }
-  }
+  };
 
-  acceptConnection(request, socket) {
+  _acceptConnection = (request, socket) => {
     let response;
     let result = false;
     const upgrade = request.headers['upgrade'];
@@ -82,19 +80,4 @@ class WebSocketServer extends EventDispatcher {
   }
 }
 
-/**
- * @param {http.Server|http.ClientRequest} requestOrServer
- * @param {net.Socket} [socket=null]
- * @param {Object} [head=null]
- */
-const init = (requestOrServer, socket = null, head = null) => {
-  wsServer.init(requestOrServer, socket, head);
-  return init;
-};
-
-init.addEventListener = wsServer.addEventListener;
-init.hasEventListener = wsServer.hasEventListener;
-init.removeEventListener = wsServer.removeEventListener;
-init.removeAllEventListeners = wsServer.removeAllEventListeners;
-
-export default init;
+export default WebSocketServer;

@@ -4,6 +4,8 @@
 
 'use strict';
 
+import * as Frame from './Frame';
+
 class IncomingMessage {
   constructor (stream) {
     this.stream = stream;
@@ -12,3 +14,5 @@ class IncomingMessage {
     this.value = this.type === Frame.TEXT_TYPE ? this.rawData.toString() : this.rawData;
   }
 }
+
+export default IncomingMessage;

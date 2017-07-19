@@ -3,17 +3,21 @@
  */
 
 'use strict';
-import Frame from './Frame';
+
+import EventDispatcher from 'event-dispatcher';
+import * as Frame from './Frame';
 import Message from './Message';
+import IncomingStream from './IncomingStream';
 
 const clients = new Map();
 const SOCKET_KEY = Symbol('client::socket');
 /**
- * @param {net.Socket} socket
+ * @param {net.Socket } socket
  * @constructor
  */
 class Client extends EventDispatcher {
   constructor(socket) {
+    super();
     /**
      * @type {net.Socket}
      */
@@ -42,11 +46,11 @@ class Client extends EventDispatcher {
    * @private
    */
   _dataHandler = (data) => {
-    var position = 0;
+    let position = 0;
     do {
-      var frameLength = Frame.readFrameLength(data, position);
+      const frameLength = Frame.readFrameLength(data, position);
       if (!frameLength) break;
-      var frame = Buffer.allocUnsafe(frameLength);
+      const frame = Buffer.allocUnsafe(frameLength);
       data.copy(frame, 0, position, position + frameLength);
       this._addFrameToIncomingStream(frame);
       position += frameLength;
@@ -153,16 +157,18 @@ class Client extends EventDispatcher {
     }
     return client;
   }
-}
 
-Client.CLOSE = 'close';
-Client.END = 'end';
-Client.ERROR = 'error';
-Client.MESSAGE_RECEIVED = 'messageReceived';
-Client.MESSAGE_SENT = 'messageSent';
+  static CLOSE = 'close';
+  static END = 'end';
+  static ERROR = 'error';
+  static MESSAGE_RECEIVED = 'messageReceived';
+  static MESSAGE_SENT = 'messageSent';
+}
 
 /**
  * @returns {Iterator.<Client>}
  * @private
  */
 Client[Symbol.iterator] = () => clients.values();
+
+export default Client;

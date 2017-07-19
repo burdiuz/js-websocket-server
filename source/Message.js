@@ -4,9 +4,32 @@
 
 'use strict';
 
-const Frame = require('./Frame');
+import * as Frame from './Frame';
 
 const BUFFER_KEY = Symbol('message::buffer');
+
+/**
+ * it will get all packages of valueOf and iterate through them
+ *
+ */
+export class MessageIterator {
+  constructor(message) {
+    this._list = message.valueOf();
+    this._length = this._list.length;
+    this._index = 0;
+  }
+
+  next() {
+    const currentIndex = this._index++;
+    let result;
+    if (currentIndex >= this._length) {
+      result = { value: undefined, done: true };
+    } else {
+      result = { value: this._list[currentIndex], done: false };
+    }
+    return result;
+  }
+}
 
 /**
  * @param {Buffer} data
@@ -22,7 +45,7 @@ class Message {
   }
 
   valueOf() {
-    var list = Frame.splitData(this[BUFFER_KEY], this.frameSize, this.masked);
+    const list = Frame.splitData(this[BUFFER_KEY], this.frameSize, this.masked);
     Frame.bounds(list, this.type);
     return list;
   }
@@ -30,51 +53,27 @@ class Message {
   [Symbol.iterator]() {
     return new MessageIterator(this);
   }
-}
-
-
-/**
- * it will get all packages of valueOf and iterate through them
- *
- */
-class MessageIterator {
-  constructor(message) {
-    this._list = message.valueOf();
-    this._length = this._list.length;
-    this._index = 0;
-  }
-
-  next() {
-    var currentIndex = this._index++;
-    var result;
-    if (currentIndex >= this._length) {
-      result = { value: undefined, done: true };
-    } else {
-      result = { value: this._list[currentIndex], done: false };
-    }
-    return result;
-  }
 
   /**
    * @param {*} data
    * @returns {Buffer}
    */
   static createBuffer(data) {
-    var result;
     if (data === null || data === undefined) {
-      result = Buffer.allocUnsafe(0);
+      return Buffer.allocUnsafe(0);
     } else {
       if (data instanceof Buffer) {
-        result = data;
+        return data;
       } else if (data.hasOwnProperty('buffer') && data.buffer instanceof Buffer) {
-        result = data.buffer;
-      } else if (typeof(data) === 'string') {
-        result = Buffer.allocUnsafe(data);
-      } else {
-        result = Buffer.allocUnsafe(JSON.stringify(data));
+        return data.buffer;
+      } else if (typeof(data) !== 'string') {
+        data = JSON.stringify(data);
       }
+
+      const buffer = Buffer.allocUnsafe(data.length);
+      buffer.write(data);
+      return buffer;
     }
-    return result;
   }
 
   /**
@@ -100,7 +99,9 @@ class MessageIterator {
     }
     return new Message(Message.createBuffer(data), type);
   }
+
+  static maskedDefault = false;
+  static frameSizeDefault = 0;
 }
 
-Message.maskedDefault = false;
-Message.frameSizeDefault = 0;
+export default Message;

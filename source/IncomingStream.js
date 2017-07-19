@@ -4,8 +4,8 @@
 
 'use strict';
 
-const Frame = require('./Frame');
-const IncomingMessage = require('./IncomingMessage');
+import * as Frame from './Frame';
+import IncomingMessage from './IncomingMessage';
 
 class IncomingStream {
   constructor() {
@@ -33,4 +33,4 @@ class IncomingStream {
   }
 }
 
-module.exports = IncomingStream;
+export default IncomingStream;

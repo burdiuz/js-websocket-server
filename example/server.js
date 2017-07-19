@@ -1,17 +1,18 @@
 'use strict';
 
-var http = require('http');
+const http = require('http');
 
 /**
  * @type {http.Server}
  */
-var server = http.createServer();
+const server = http.createServer();
 
-var webSocket = require('../index.js');
-webSocket.addEventListener(webSocket.CLIENT_CONNECTED, function(event) {
+const { default: webSocket } = require('../index.js');
+
+webSocket.addEventListener(webSocket.CLIENT_CONNECTED, (event) => {
   let client = event.data;
   console.log(' -- client connected');
-  client.addEventListener(webSocket.Client.MESSAGE_RECEIVED, function(event) {
+  client.addEventListener(webSocket.Client.MESSAGE_RECEIVED, (event) => {
     if (event.data.type === webSocket.Frame.TEXT_TYPE) {
       console.log(' - message received:', event.data.value);
       for (let client of webSocket.Client) {
@@ -27,7 +28,7 @@ server.on('upgrade', webSocket);
 // Express app for handling static files HTTP requests
 var express = require('express');
 var app = express();
-app.use(function(req, res, next) {
+app.use((req, res, next) => {
   console.log(req.path);
   if (req.path === '/ws') {
     console.log(req.headers);
@@ -38,6 +39,7 @@ app.use(function(req, res, next) {
 app.use(express.static('.'));
 server.on('request', app);
 server.listen(8081);
+
 /**
  app.listen(8081, function() {
  console.log('Server started...');
