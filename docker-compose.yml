@@ -1,0 +1,7 @@
+version: '3'
+services:
+  example:
+    build:
+      context: .
+    ports:
+      - "8081:8081"
