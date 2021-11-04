@@ -4,7 +4,6 @@
     "rootDir": ".",
     "outDir": "./dist",
     "declarationDir": "./dist",
-    "types": [],
     "declaration": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

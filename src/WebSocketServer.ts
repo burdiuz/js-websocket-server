@@ -17,14 +17,14 @@ import { acceptHTTPConnection } from './utils';
 */
 export const createWebSocketServer = (
   requestOrServer: Server | ClientRequest,
-  socket = null,
-  head = null
+  socket: Socket,
+  head?: any
 ) => new WebSocketServer(requestOrServer, socket, head);
 
 export class WebSocketServer extends EventEmitter {
   constructor(
     requestOrServer: Server | ClientRequest,
-    socket?: Socket,
+    socket: Socket,
     head?: any
   ) {
     super();
@@ -37,7 +37,7 @@ export class WebSocketServer extends EventEmitter {
 
   private handleUpgrade = (
     request: ClientRequest,
-    socket?: Socket,
+    socket: Socket,
     head?: any
   ) => {
     if (!acceptHTTPConnection(request, socket)) {
@@ -54,7 +54,7 @@ export class WebSocketServer extends EventEmitter {
   handleClientClose = (client: Client) => {
     removeClient(client);
 
-    client.off(Client.CLOSE, this.handleClientClose);
+    client.off(ClientEvent.CLOSE, this.handleClientClose);
     this.emit(WebSocketEvent.CLIENT_DISCONNECTED, client);
   };
 }

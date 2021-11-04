@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { ClientRequest } from 'http';
 import { Socket } from 'net';
-import crypto from 'crypto';
+import { createHash } from 'crypto';
 
 // constant used in WebSocket handshake, https://www.rfc-editor.org/rfc/rfc6455
 const UUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
@@ -10,12 +10,11 @@ const SUPPORTED_VERSIONS = {
   '13': true,
 };
 
-export const hasListeners = (emitter: EventEmitter, type: String) =>
+export const hasListeners = (emitter: EventEmitter, type: string) =>
   emitter.listenerCount(type) > 0;
 
 export const createKeyResponse = (key: string) =>
-  crypto
-    .createHash('SHA1')
+  createHash('SHA1')
     .update(key + UUID)
     .digest('base64');
 
@@ -39,6 +38,7 @@ export const acceptHTTPConnection = (
   const upgrade: string = request.headers['upgrade'];
   const key: string = request.headers['sec-websocket-key'];
   const version: string = request.headers['sec-websocket-version'];
+  
   if (
     upgrade &&
     upgrade.toLowerCase() === 'websocket' &&
@@ -51,6 +51,6 @@ export const acceptHTTPConnection = (
   }
 
   socket.write(response);
-  
+
   return result;
 };

@@ -4,7 +4,7 @@ import { Buffer } from 'buffer';
 import * as Frame from './Frame';
 import { FrameType } from './FrameType';
 import { Message, createMessage } from './Message';
-import IncomingStream from './IncomingStream';
+import { IncomingStream } from './IncomingStream';
 import { SocketEvent } from './SocketEvent';
 import { ClientEvent } from './ClientEvent';
 import { hasListeners } from './utils';
