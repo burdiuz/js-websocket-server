@@ -1,18 +1,12 @@
-/**
- * Created by Oleg Galaburda on 07.04.16.
- */
-
-'use strict';
-
-import * as Frame from './Frame';
+import * as Frame from './frame';
 import { IncomingMessage } from './IncomingMessage';
 
 export class IncomingStream {
-  private list: Uint8Array[] = [];
+  private list: Buffer[] = [];
 
   constructor() {}
 
-  append(buffer: Uint8Array) {
+  append(buffer: Buffer) {
     this.list.push(buffer);
   }
 

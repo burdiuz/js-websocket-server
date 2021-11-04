@@ -1,38 +1,37 @@
-import BufferIterator from './BufferIterator';
+import { BufferIterator } from './BufferIterator';
+import { FrameType } from './FrameType';
 
-export const CONTINUATION_TYPE = 0x0;
-export const TEXT_TYPE = 0x1;
-export const BINARY_TYPE = 0x2;
-export const CLOSE_TYPE = 0x8;
-export const PING_TYPE = 0x9;
-export const PONG_TYPE = 0xA;
-
-export const mask = (frameBuffer, position) => {
+export const mask = (frameBuffer: Uint8Array, position: number) => {
   const maskData = Buffer.allocUnsafe(4);
+
   //FIXME standard random algorithm is not reliable, please update if looking for further work with this project
-  maskData.writeUInt32BE(Math.random() * Math.pow(2, 32) >>> 0);
+  maskData.writeUInt32BE((Math.random() * Math.pow(2, 32)) >>> 0);
   maskData.copy(frameBuffer, position, 0, 4);
+
   return maskData;
 };
 
-export const setDataLength = (frameBuffer, dataLength) => {
+// Returns data shift
+export const setDataLength = (frameBuffer: Buffer, dataLength: number) => {
   const position = 2;
-  let shift = 0;
+
   if (dataLength > 65535) {
     frameBuffer[1] = frameBuffer[1] | 127;
     frameBuffer.writeDoubleBE(dataLength, position);
-    shift = 8;
-  } else if (dataLength > 125) {
+    return 8;
+  }
+
+  if (dataLength > 125) {
     frameBuffer[1] = frameBuffer[1] | 126;
     frameBuffer.writeUInt16BE(dataLength, position);
-    shift = 2;
-  } else {
-    frameBuffer[1] = frameBuffer[1] | dataLength;
+    return 2;
   }
-  return shift;
+
+  frameBuffer[1] = frameBuffer[1] | dataLength;
+  return 0;
 };
 
-export const create = (data, masked) => {
+export const create = (data: Buffer, masked: boolean) => {
   let maskData;
   let index;
   let position = 2;
@@ -41,42 +40,42 @@ export const create = (data, masked) => {
   buffer[0] = 0; // FIN + RSV1-3 + OPCODE
   buffer[1] = (masked ? 1 : 0) << 7;
   position += setDataLength(buffer, dataLength);
-  /* Messages from server should not be masked
-   https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers
+
+  /*
+    Messages from server should not be masked
+    https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API/Writing_WebSocket_servers
    */
-  if (masked) {
-    maskData = mask(buffer, position);
-    position += 4;
-    index = 0;
-    for (let entry of data) {
-      let byte = entry[1];
-      buffer[position++] = byte ^ maskData[index++ % 4];
-    }
-  } else {
+  if (!masked) {
     data.copy(buffer, position, 0, data.length);
+    return buffer;
   }
+
+  maskData = mask(buffer, position);
+  position += 4;
+  index = 0;
+
+  for (let entry of data) {
+    // FIXME why am I getting index out of number?
+    // did I confuse it with buffer.entries()?
+    let byte = entry[1];
+    buffer[position++] = byte ^ maskData[index++ % 4];
+  }
+
   return buffer;
 };
 
-export const readMask = (frameBuffer, position) => {
+export const readMask = (frameBuffer: Buffer, position: number) => {
   const maskData = Buffer.allocUnsafe(4);
   frameBuffer.copy(maskData, 0, position, position + 4);
   return maskData;
 };
 
-/**
- *
- * @param {Buffer} data
- * @param {Number} [startPosition=0]
- * @returns {?Buffer}
- */
-export const parse = (data, startPosition) => {
-  startPosition = startPosition || 0;
-  if (!data || !data.length) return null;
+export const parse = (data: Buffer, startPosition: number = 0) => {
   let result;
   const masked = data[startPosition + 1] >>> 7;
-  let length = data[startPosition + 1] & Math.pow(2, 7) - 1;
+  let length = data[startPosition + 1] & (Math.pow(2, 7) - 1);
   let position = startPosition + 2;
+
   if (length > 125) {
     if (length == 126) {
       length = data.readUInt16BE(position);
@@ -86,109 +85,111 @@ export const parse = (data, startPosition) => {
       position += 8;
     }
   }
+
   if (position + (masked && 4) + length < data.length) {
     throw new Error('Cannot parse incomplete or broken? frame package.');
   }
-  if (masked) {
-    result = Buffer.allocUnsafe(length);
-    const mask = readMask(data, position);
-    position += 4;
-    for (let index = 0; index < length; index++, position++) {
-      result[index] = data[position] ^ mask[index % 4];
-    }
-  } else {
-    result = data.slice(position, length);
+
+  if (!masked) {
+    return data.slice(position, length);
   }
+
+  result = Buffer.allocUnsafe(length);
+  const mask = readMask(data, position);
+  position += 4;
+
+  for (let index = 0; index < length; index++, position++) {
+    result[index] = data[position] ^ mask[index % 4];
+  }
+
   return result;
 };
 
-/**
- * @param {Buffer[]} list
- */
-export const parseStream = (list) => {
-  const result = [];
-  const length = list.length;
-  for (let index = 0; index < length; index++) {
-    result.push(parse(list[index]));
-  }
-  return Buffer.concat(result);
-};
+export const parseStream = (list: Buffer[]) =>
+  Buffer.concat(
+    list
+      //.filter((item) => item && item.length)
+      .map((part) => parse(part))
+  );
 
-/**
- *
- * @param {Buffer} data
- * @param {Number} [startPosition=0]
- * @returns {Number}
- */
-export const readFrameLength = (data, startPosition) => {
-  startPosition = startPosition || 0;
-  if (!data || data.length <= startPosition) return 0;
+export const readFrameLength = (data: Buffer, startPosition: number = 0) => {
+  if (data.length <= startPosition) {
+    return 0;
+  }
+
   const position = startPosition + 2;
-  let size = 2 + ((data[startPosition + 1] >>> 7) && 4);
-  let length = data[startPosition + 1] & Math.pow(2, 7) - 1;
-  if (length > 125) {
-    if (length == 126) {
-      length = data.readUInt16BE(position);
-      size += 2;
-    } else {
-      length = data.readDoubleBE(position);
-      size += 8;
-    }
+  const size = 2 + (data[startPosition + 1] >>> 7 && 4);
+  const length = data[startPosition + 1] & (Math.pow(2, 7) - 1);
+
+  if (length < 126) {
+    return size + length;
   }
-  return size + length;
+
+  if (length == 126) {
+    return size + data.readUInt16BE(position) + 2;
+  }
+
+  return size + data.readDoubleBE(position) + 8;
 };
 
-/**
- *
- * @param {Buffer} data
- * @param {Number} [startPosition=0]
- * @returns {Number}
- */
-export const readPayloadLength = (data, startPosition) => {
-  startPosition = startPosition || 0;
-  if (!data || data.length <= startPosition + 2) return 0;
-  let length = data[startPosition + 1] & Math.pow(2, 7) - 1;
+// TODO unused helper function
+export const readPayloadLength = (data: Buffer, startPosition: number = 0) => {
+  if (data.length <= startPosition + 2) {
+    return 0;
+  }
+
+  /* 0x7F = (Math.pow(2, 7) - 1) */
+  let length = data[startPosition + 1] & 0x7f;
   const position = startPosition + 2;
-  if (length > 125) {
-    if (length == 126) {
-      length = data.readUInt16BE(position);
-    } else {
-      length = data.readDoubleBE(position);
-    }
+
+  if (length < 126) {
+    return length;
   }
-  return length;
+
+  if (length == 126) {
+    return data.readUInt16BE(position);
+  }
+
+  return data.readDoubleBE(position);
 };
 
-export const length = (dataLength, masked) => {
+export const length = (dataLength: number, masked: boolean) => {
   let length = 2;
+
   if (masked) {
     length += 4;
   }
+
   if (dataLength > 65535) {
     length += 8;
   } else if (dataLength > 125) {
     length += 2;
   }
+
   return length + dataLength;
 };
 
-export const getType = (buffer) => (buffer[0] & (Math.pow(2, 4) - 1));
+export const getType = (buffer: Uint8Array) =>
+  /* 0xF = (Math.pow(2, 4) - 1) */
+  buffer[0] & 0xf;
 
-export const isFinal = (buffer) => Boolean(buffer[0] >>> 7);
+export const isFinal = (buffer: Uint8Array) => Boolean(buffer[0] >>> 7);
 
-export const bounds = (list, type) => {
+export const bounds = (list: Uint8Array[], type: FrameType) => {
   const last = list.length - 1;
   // init first frame, set type opcode
-  list[0][0] = list[0][0] >>> 4 << 4 | type;
+  list[0][0] = ((list[0][0] >>> 4) << 4) | type;
   // init last frame, set FIN
-  list[last][0] = list[last][0] | 1 << 7;
+  list[last][0] = list[last][0] | (1 << 7);
 };
 
-export const splitData = (data, frameSize, masked) => {
-  const list = [];
+export const splitData = (data: Buffer, frameSize: number, masked: boolean) => {
+  const list: Uint8Array[] = [];
   const iterator = new BufferIterator(data, frameSize);
+
   for (let buffer of iterator) {
     list.push(create(buffer, Boolean(masked)));
   }
+
   return list;
 };

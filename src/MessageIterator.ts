@@ -1,4 +1,4 @@
-export class MessageIterator {
+export class MessageIterator implements Iterator<Uint8Array, undefined> {
   private readonly length: number;
   private index: number;
 
@@ -7,7 +7,7 @@ export class MessageIterator {
     this.index = 0;
   }
 
-  next() {
+  next(): IteratorResult<Uint8Array, undefined> {
     const currentIndex = this.index++;
 
     if (currentIndex >= this.length) {

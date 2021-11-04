@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
 import { Socket } from 'net';
 import { Buffer } from 'buffer';
-import * as Frame from './Frame';
+import * as Frame from './frame';
 import { FrameType } from './FrameType';
 import { Message, createMessage } from './Message';
 import { IncomingStream } from './IncomingStream';
@@ -35,7 +35,7 @@ export class Client extends EventEmitter {
     } while (position < data.length && frameLength);
   };
 
-  private addFrameToIncomingStream = (frame: Uint8Array) => {
+  private addFrameToIncomingStream = (frame: Buffer) => {
     if (!this.incomingStream) {
       // don't bother looking for data if developer not interested in it
       if (!hasListeners(this, ClientEvent.MESSAGE_RECEIVED)) {

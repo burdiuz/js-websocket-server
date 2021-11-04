@@ -1,5 +1,5 @@
 import { Buffer } from 'buffer';
-import * as Frame from './Frame';
+import * as Frame from './frame';
 import { FrameType } from './FrameType';
 import { MessageIterator } from './MessageIterator';
 
@@ -26,7 +26,7 @@ export const createMessage = (data: any, type?: FrameType) => {
 
 export class Message {
   constructor(
-    private readonly buffer: Uint8Array,
+    private readonly buffer: Buffer,
     private readonly type: FrameType,
     public masked = false,
     public frameSize = 0

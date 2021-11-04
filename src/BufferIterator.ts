@@ -1,19 +1,18 @@
-export class BufferIterator {
+export class BufferIterator implements Iterator<Buffer, undefined> {
   private length: number;
   private current: number;
   private pieces: number;
-  
+
   // Uint8Array is a base type of Buffer and this iterator does not use Buffer API
-  constructor(private readonly buffer: Uint8Array, private frameSize: number) {
+  constructor(private readonly buffer: Buffer, private frameSize: number) {
     this.length = buffer.length;
     this.current = 0;
     this.pieces = frameSize > 0 ? Math.ceil(this.length / frameSize) : 1;
   }
 
-  next() {
+  next(): IteratorResult<Buffer, undefined> {
     const current = this.current++;
     if (current >= this.pieces) {
-
       return {
         value: undefined,
         done: true,
@@ -27,7 +26,10 @@ export class BufferIterator {
     }
 
     const pos = current * this.frameSize;
-    const size = this.current * this.frameSize > this.length ? this.length - pos : this.frameSize;
+    const size =
+      this.current * this.frameSize > this.length
+        ? this.length - pos
+        : this.frameSize;
 
     return {
       value: this.buffer.slice(pos, pos + size),
