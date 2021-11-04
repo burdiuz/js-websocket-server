@@ -1,4 +1,4 @@
-FROM node:6
+FROM node:16
 EXPOSE 8081
 RUN mkdir -p /srv/app/example
 WORKDIR /srv/app
