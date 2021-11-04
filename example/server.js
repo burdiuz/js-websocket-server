@@ -1,32 +1,34 @@
-'use strict';
-
-const http = require('http');
+import { createServer } from 'http';
+import express from 'express';
+import {
+  createUpgradeHandler,
+  ClientEvent,
+  FrameType,
+  enumerateClients,
+} from '../dist/index.js';
 
 /**
  * @type {http.Server}
  */
-const server = http.createServer();
+const server = createServer();
 
-const { default: webSocket } = require('../index.js');
-
-webSocket.addEventListener(webSocket.CLIENT_CONNECTED, (event) => {
-  let client = event.data;
+const upgradeHandler = createUpgradeHandler((client) => {
   console.log(' -- client connected');
-  client.addEventListener(webSocket.Client.MESSAGE_RECEIVED, (event) => {
-    if (event.data.type === webSocket.Frame.TEXT_TYPE) {
-      console.log(' - message received:', event.data.value);
-      for (let client of webSocket.Client) {
-        client.send(event.data.value.split('').reverse().join(''));
+  client.on(ClientEvent.MESSAGE_RECEIVED, (data) => {
+    if (data.type === FrameType.TEXT) {
+      console.log(' - message received:', data.value);
+
+      for (let item of enumerateClients()) {
+        item.send(data.value.split('').reverse().join(''));
       }
     }
   });
 });
 
 // Handling HTTP requests to start WebSocket connection
-server.on('upgrade', webSocket);
+server.on('upgrade', upgradeHandler);
 
 // Express app for handling static files HTTP requests
-var express = require('express');
 var app = express();
 app.use((req, res, next) => {
   console.log(req.path);
