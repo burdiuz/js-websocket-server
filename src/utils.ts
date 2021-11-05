@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { ClientRequest } from 'http';
+import { IncomingMessage } from 'http';
 import { Socket } from 'net';
 import { createHash } from 'crypto';
 
@@ -30,14 +30,14 @@ const generateUpgradeResponse = (key: string) =>
   ].join('\r\n');
 
 export const acceptHTTPConnection = (
-  request: ClientRequest,
+  request: IncomingMessage,
   socket: Socket
 ) => {
   let response;
   let result = false;
-  const upgrade: string = request.headers['upgrade'];
-  const key: string = request.headers['sec-websocket-key'];
-  const version: string = request.headers['sec-websocket-version'];
+  const upgrade: string = request.headers['upgrade'] || '';
+  const key: string = request.headers['sec-websocket-key'] || '';
+  const version: string = request.headers['sec-websocket-version'] || '';
   
   if (
     upgrade &&

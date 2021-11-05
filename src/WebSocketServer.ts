@@ -1,4 +1,4 @@
-import { Server, ClientRequest } from 'http';
+import { Server, IncomingMessage } from 'http';
 import { Socket } from 'net';
 import { EventEmitter } from 'events';
 import { Client } from './Client';
@@ -8,38 +8,37 @@ import { WebSocketEvent } from './WebSocketEvent';
 import { addClient, getClient, removeClient } from './clients';
 import { acceptHTTPConnection } from './utils';
 
-/*
-  FIXME think on how to make it universal andfilter endpoints
-  createWebSocketServer(onClientAdd, onClientRemove) => (requestOrServer, socket, head)
-  or
-  server.on('upgrade', createWebSocketServer(onClientAdd, onClientRemove))
-  or...?
-*/
-export const createWebSocketServer = (
-  requestOrServer: Server | ClientRequest,
-  socket: Socket,
-  head?: any
-) => new WebSocketServer(requestOrServer, socket, head);
-
-export class WebSocketServer extends EventEmitter {
-  constructor(
-    requestOrServer: Server | ClientRequest,
+export const createUpgradeHandler = (
+  onConnect: (client: Client) => void,
+  onDisconnect: (client: Client) => void,
+  guard: (
+    request: IncomingMessage,
     socket: Socket,
     head?: any
-  ) {
+  ) => boolean = () => true
+) => {
+  const server = new WebSocketServer();
+  onConnect && server.on(WebSocketEvent.CLIENT_CONNECTED, onConnect);
+  onDisconnect && server.on(WebSocketEvent.CLIENT_DISCONNECTED, onDisconnect);
+
+  return (request: IncomingMessage, socket: Socket, head?: any) => {
+    if (!guard(request, socket, head)) {
+      return;
+    }
+
+    server.upgrade(request, socket, head);
+  };
+};
+
+export class WebSocketServer extends EventEmitter {
+  constructor(server?: Server) {
     super();
-    if (requestOrServer instanceof Server) {
-      requestOrServer.on(HTTPServerEvent.UPGRADE, this.handleUpgrade);
-    } else {
-      this.handleUpgrade(requestOrServer, socket, head);
+    if (server) {
+      server.on(HTTPServerEvent.UPGRADE, this.upgrade);
     }
   }
 
-  private handleUpgrade = (
-    request: ClientRequest,
-    socket: Socket,
-    head?: any
-  ) => {
+  upgrade = (request: IncomingMessage, socket: Socket, head?: any) => {
     if (!acceptHTTPConnection(request, socket)) {
       return;
     }

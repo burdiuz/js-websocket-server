@@ -17,7 +17,7 @@ export const getMessageType = (data: any) => {
 };
 
 export const createMessage = (data: any, type?: FrameType) => {
-  let messageType = Number.isNaN(type)
+  let messageType = isNaN(type as any) // Number.isNaN() returns false for undefined
     ? getMessageType(data)
     : (type as FrameType);
 

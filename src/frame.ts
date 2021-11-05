@@ -54,10 +54,15 @@ export const create = (data: Buffer, masked: boolean) => {
   position += 4;
   index = 0;
 
+  /*
+  // FIXME why am I getting index out of number?
+  // did I confuse it with buffer.entries()?
   for (let entry of data) {
-    // FIXME why am I getting index out of number?
-    // did I confuse it with buffer.entries()?
     let byte = entry[1];
+    buffer[position++] = byte ^ maskData[index++ % 4];
+  }
+  */
+  for (let byte of data) {
     buffer[position++] = byte ^ maskData[index++ % 4];
   }
 
